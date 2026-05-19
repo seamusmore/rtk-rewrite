@@ -1,0 +1,8 @@
+name: rtk-rewrite
+version: "1.2.3"
+description: RTK Hermes Plugin — rewrites terminal commands through RTK for 60-90% LLM token savings. Supports preview marker, mode switching, slash commands.
+author: Luna (forked from ogallotti/rtk-hermes, based on rtk-ai/rtk)
+hooks:
+  - pre_tool_call
+provides_hooks:
+  - pre_tool_call
