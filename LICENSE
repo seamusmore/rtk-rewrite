@@ -23,10 +23,10 @@ SOFTWARE.
 
 ---
 
-## Modifications from ogallotti/rtk-hermes v1.2.3
+## Modifications from ogallotti/rtk-hermes
 
 This project is a fork of [ogallotti/rtk-hermes](https://github.com/ogallotti/rtk-hermes)
-(v1.2.3, MIT License).
+(MIT License).
 
 Changes made:
 - **Removed pip/setuptools packaging** — adapted from a pip-installable package
