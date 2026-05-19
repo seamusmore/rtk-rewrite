@@ -2,7 +2,7 @@
 
 Hermes Agent 插件：将终端命令自动通过 [RTK](https://github.com/rtk-ai/rtk) 代理执行，节省 **60-90%** LLM token 消耗。
 
-基于 [ogallotti/rtk-hermes](https://github.com/ogallotti/rtk-hermes) v1.2.3，改造为 Hermes 纯目录插件（无需 pip/venv）。
+基于 [ogallotti/rtk-hermes](https://github.com/ogallotti/rtk-hermes)，改造为 Hermes 纯目录插件（无需 pip/venv）。
 
 ## 特性
 
@@ -90,6 +90,6 @@ export RTK_HERMES_PREVIEW_MARKER=true
 
 MIT License. Copyright (c) 2026 ogallotti/rtk-hermes contributors, Copyright (c) 2026 Seamus.
 
-本项目 fork 自 [ogallotti/rtk-hermes](https://github.com/ogallotti/rtk-hermes) v1.2.3（MIT），移除了 pip/setuptools 打包，改为 Hermes 纯目录插件。核心改写逻辑未变。
+本项目 fork 自 [ogallotti/rtk-hermes](https://github.com/ogallotti/rtk-hermes) （MIT），移除了 pip/setuptools 打包，改为 Hermes 纯目录插件。核心改写逻辑未变。
 
 RTK 二进制项目：[rtk-ai/rtk](https://github.com/rtk-ai/rtk)
