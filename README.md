@@ -39,7 +39,12 @@ rtk rewrite "git status"   # 应输出 rtk git status
 ### 第二步：安装本插件
 
 ```bash
-# 克隆到 Hermes 插件目录
+hermes plugins install seamusmore/rtk-rewrite
+```
+
+此命令会自动将插件安装到 `~/.hermes/plugins/rtk-rewrite/` 并启用。如需手动安装或离线环境：
+
+```bash
 mkdir -p ~/.hermes/plugins
 git clone https://github.com/seamusmore/rtk-rewrite.git ~/.hermes/plugins/rtk-rewrite
 ```
