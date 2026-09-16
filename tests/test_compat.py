@@ -163,6 +163,23 @@ class CodexContract(unittest.TestCase):
             output = json.loads(result.stdout)["hookSpecificOutput"]
             self.assertEqual(output["updatedInput"]["command"], "rtk git status")
 
+    @unittest.skipUnless(os.name == "nt", "Windows launcher required")
+    def test_windows_launcher_from_powershell(self):
+        shell = shutil.which("pwsh") or shutil.which("powershell")
+        if shell is None:
+            self.skipTest("PowerShell required")
+        with tempfile.TemporaryDirectory(prefix="rtk plugin ") as folder:
+            copied = Path(folder) / "rtk-rewrite"
+            shutil.copytree(ROOT, copied, ignore=shutil.ignore_patterns(".git", "__pycache__"))
+            hook = json.loads((copied / "hooks/hooks.json").read_text())["hooks"]["PreToolUse"][0]["hooks"][0]
+            # Off mode isolates launcher portability from RTK installation.
+            env = {**os.environ, "PLUGIN_ROOT": str(copied), "RTK_CODEX_MODE": "off"}
+            result = subprocess.run([shell, "-NoProfile", "-Command", hook["commandWindows"]],
+                                    input=json.dumps(self.event()), text=True,
+                                    capture_output=True, env=env, cwd=ROOT.parent)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads(result.stdout), {})
+
 
 if __name__ == "__main__":
     unittest.main()

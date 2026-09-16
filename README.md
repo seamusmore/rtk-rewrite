@@ -44,7 +44,10 @@ python -m unittest discover -s tests -v
 
 测试需要完整 Git 历史，以读取抽取前的 Hermes 基线 `07be79f`，对照配置、命令返回、计数、异常和注册行为。
 安装 RTK 时额外运行真实 hook 启动测试，包括含空格的安装路径和不同工作目录。
-Codex 客户端安装、hook 信任及新任务自动触发需在发布前完成验收。
+已使用 Codex 0.154.0-alpha.6.2 原生 app-server 和本地固定 Responses 协议测试完成安装、信任、hook 自动触发及 PowerShell 执行验收；测试期间未调用外部模型服务。
+
+Windows 只读沙箱注意事项：本机 RTK 0.42.0 执行时会因用户目录解析失败而退出。独立 RTK 0.49.0 配合指向真实 Claude 配置目录的 `CLAUDE_CONFIG_DIR` 已通过压缩输出验收。运行时选择和环境变量需通过用户明确批准的 Codex 配置完成。
+`rtk gain` 使用 RTK 自己的数据库；只读沙箱无法写入该数据库时，压缩命令仍可成功，统计无法持久化。插件保持宿主权限，数据库写权限需单独授权。
 
 协议参考：[Codex Hooks](https://learn.chatgpt.com/docs/hooks)。
 
