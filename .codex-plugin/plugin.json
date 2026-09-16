@@ -1,0 +1,17 @@
+{
+  "name": "rtk-rewrite",
+  "version": "1.3.0",
+  "description": "Automatically rewrite supported terminal commands through RTK with a Codex PreToolUse hook.",
+  "author": {"name": "Seamus", "url": "https://github.com/seamusmore"},
+  "repository": "https://github.com/seamusmore/rtk-rewrite",
+  "license": "MIT",
+  "interface": {
+    "displayName": "RTK Rewrite",
+    "shortDescription": "Automatic RTK terminal command rewriting",
+    "longDescription": "A native PreToolUse hook for supported simple terminal commands. Requires Python 3.10+ and RTK on PATH. Token savings are tracked by RTK.",
+    "developerName": "Seamus",
+    "category": "Productivity",
+    "capabilities": [],
+    "defaultPrompt": []
+  }
+}
