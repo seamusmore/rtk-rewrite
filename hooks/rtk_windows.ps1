@@ -15,7 +15,11 @@ try {
     }
     # Parse the exact rewritten command once in the original PowerShell shell.
     # Passing its tokens as script arguments would consume native '--'.
-    Invoke-Expression $RtkCommand
+    # Use Python for stream handling: the sandbox's ConstrainedLanguage mode
+    # forbids .NET console methods. PowerShell still parses native arguments.
+    $runner = (Join-Path $PSScriptRoot 'rtk_run.py').Replace("'", "''")
+    $invocation = $RtkCommand -replace '^rtk ', "python '$runner' "
+    Invoke-Expression $invocation
     $rtkResult = $LASTEXITCODE
 } finally {
     $env:CLAUDE_CONFIG_DIR = $rtkPreviousClaudeDir

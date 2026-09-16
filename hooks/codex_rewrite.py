@@ -14,6 +14,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from shared.rewrite import rewrite
 
 
+def updated_command(args: dict, command: str) -> dict:
+    if os.name == "nt":
+        launcher = str(Path(__file__).with_name("rtk_windows.ps1")).replace("'", "''")
+        command = f"& '{launcher}' '{command.replace(chr(39), chr(39) * 2)}'"
+    return {"hookSpecificOutput": {
+        "hookEventName": "PreToolUse",
+        "permissionDecision": "allow",
+        "updatedInput": {**args, "command": command},
+    }}
+
+
 def handle(event: object) -> dict:
     if not isinstance(event, dict) or event.get("hook_event_name") != "PreToolUse":
         return {}
@@ -35,12 +46,17 @@ def handle(event: object) -> dict:
     if mode != "rewrite":
         return {"systemMessage": "[rtk] Invalid RTK_CODEX_MODE; keeping the original command."}
     stripped = command.lstrip()
-    if re.match(r"rtk(?:\.exe)?(?:\s|$)", stripped, re.IGNORECASE):
-        return {}
     # RTK's parser assumes POSIX shell syntax. Leave compound commands,
     # substitutions, scripts and shell control syntax to the original shell.
     # This conservative rule also protects PowerShell on Windows.
     if any(char in command for char in "\r\n;&|<>`$(){}"):
+        return {}
+    explicit_rtk = re.match(r"rtk(?:\.exe)?\s+(.+)$", stripped, re.IGNORECASE)
+    if explicit_rtk:
+        # Direct diagnostics (including gain) need the same Windows profile
+        # resolution and host-specific messages as automatically rewritten calls.
+        if os.name == "nt":
+            return updated_command(args, "rtk " + explicit_rtk.group(1))
         return {}
     try:
         timeout_ms = int(os.getenv("RTK_CODEX_TIMEOUT_MS", "2000"))
@@ -71,18 +87,7 @@ def handle(event: object) -> dict:
     # the regular tool handler (including its sandbox/approval checks).
     # It is distinct from PermissionRequest allow. RTK code 3 delegates to
     # that host approval flow, as it does in the existing Hermes adapter.
-    rewritten = result.command
-    if os.name == "nt":
-        # Keep PowerShell's original argument parsing. The script only fills
-        # RTK's missing profile lookup inside this invocation, then restores it.
-        launcher = str(Path(__file__).with_name("rtk_windows.ps1")).replace("'", "''")
-        quoted_command = rewritten.replace("'", "''")
-        rewritten = f"& '{launcher}' '{quoted_command}'"
-    return {"hookSpecificOutput": {
-        "hookEventName": "PreToolUse",
-        "permissionDecision": "allow",
-        "updatedInput": {**args, "command": rewritten},
-    }}
+    return updated_command(args, result.command)
 
 
 def main() -> None:

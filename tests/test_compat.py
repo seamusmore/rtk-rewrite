@@ -111,7 +111,7 @@ class CodexContract(unittest.TestCase):
         self.assertEqual(output["permissionDecision"], "allow")
 
     def test_skips_scripts_other_tools_and_repeat_rewrites(self):
-        for command in ["rtk git status", "RTK.exe git status", "git status; git diff", "git status && git diff",
+        for command in ["git status; git diff", "git status && git diff",
                         'git diff "$env:HOME"', "git status | Out-String", "git status\ngit diff", "", None]:
             with patch.object(codex, "rewrite") as rewrite:
                 self.assertEqual(codex.handle(self.event(command)), {})
@@ -119,6 +119,55 @@ class CodexContract(unittest.TestCase):
         for event in [None, [], {}, {"hook_event_name": "PostToolUse"},
                       {**self.event(), "tool_name": "mcp__shell"}, {**self.event(), "tool_input": []}]:
             self.assertEqual(codex.handle(event), {})
+
+    def test_explicit_rtk_uses_windows_adapter_once(self):
+        for command in ["rtk gain --history", "RTK.exe gain --history", "rtk git status"]:
+            with patch.object(codex, "rewrite") as rewrite:
+                output = codex.handle(self.event(command))
+                rewrite.assert_not_called()
+            if os.name == "nt":
+                wrapped = output["hookSpecificOutput"]["updatedInput"]["command"]
+                self.assertIn("rtk_windows.ps1", wrapped)
+                self.assertEqual(codex.handle(self.event(wrapped)), {})
+            else:
+                self.assertEqual(output, {})
+
+    @unittest.skipUnless(os.name == "nt", "Windows runner required")
+    def test_windows_diagnostic_keeps_stdout_errors_and_exit(self):
+        shell = shutil.which("pwsh") or shutil.which("powershell")
+        script = str(ROOT / "hooks/rtk_windows.ps1").replace("'", "''")
+        # Native stderr must remain stderr, and lookalike stdout must survive.
+        with tempfile.TemporaryDirectory(prefix="rtk diagnostic ") as folder:
+            stub = Path(folder) / "rtk.cmd"
+            warning = "[rtk] /!\\ No hook installed - run `rtk init -g` for automatic token savings"
+            stub.write_text("@echo off\n" + f"echo {warning}\n"
+                            + f"echo {warning} 1>&2\n"
+                            + "echo integrity failure 1>&2\nexit /b 7\n")
+            env = {**os.environ, "PATH": folder + os.pathsep + os.environ["PATH"]}
+            result = subprocess.run([shell, "-NoProfile", "-Command", f"& '{script}' 'rtk gain --history'; exit $LASTEXITCODE"],
+                                    capture_output=True, text=True, env=env)
+            self.assertEqual(result.returncode, 7, result.stdout + result.stderr)
+            self.assertIn(warning, result.stdout)
+            self.assertNotIn("No hook installed", result.stderr)
+            self.assertIn("Codex rewrite adapter active", result.stderr)
+            self.assertIn("integrity failure", result.stderr)
+
+    @unittest.skipUnless(os.name == "nt", "Windows native stub required")
+    def test_gain_database_failure_keeps_failure_and_explains_permissions(self):
+        with tempfile.TemporaryDirectory(prefix="rtk database ") as folder:
+            stub = Path(folder) / "rtk.cmd"
+            stub.write_text("@echo off\n"
+                            "echo rtk: Failed to initialize tracking database: unable to open database file 1>&2\n"
+                            "exit /b 1\n")
+            env = {**os.environ, "PATH": folder + os.pathsep + os.environ["PATH"]}
+            runner = ROOT / "hooks/rtk_run.py"
+            for command in ["gain", "git"]:
+                result = subprocess.run([sys.executable, str(runner), command],
+                                        capture_output=True, env=env)
+                self.assertEqual(result.returncode, 1)
+                self.assertEqual(result.stdout, b"")
+                self.assertIn(b"unable to open database file", result.stderr)
+                self.assertEqual(b"Persistent tracking requires" in result.stderr, command == "gain")
 
     def test_policy_codes_and_failure_outcomes(self):
         from shared.rewrite import RewriteResult
@@ -186,7 +235,7 @@ class CodexContract(unittest.TestCase):
             quoted = str(script).replace("'", "''")
             rtk_command = "rtk git diff -- 'folder with spaces/file.txt' 'user''s.txt'"
             driver = (
-                "function rtk { ConvertTo-Json -Compress -InputObject "
+                "function python { ConvertTo-Json -Compress -InputObject "
                 "@{arguments=@($args); directory=$env:CLAUDE_CONFIG_DIR}; $global:LASTEXITCODE=7 }; "
                 f"& '{quoted}' '{rtk_command.replace(chr(39), chr(39)*2)}'; "
                 "$result=$LASTEXITCODE; ConvertTo-Json -Compress -InputObject "
@@ -201,7 +250,8 @@ class CodexContract(unittest.TestCase):
                                         capture_output=True, text=True, env=env)
                 self.assertEqual(result.returncode, 7, result.stderr)
                 invoked, restored = map(json.loads, result.stdout.splitlines())
-                self.assertEqual(invoked["arguments"],
+                self.assertTrue(invoked["arguments"][0].endswith("rtk_run.py"))
+                self.assertEqual(invoked["arguments"][1:],
                                  ["git", "diff", "folder with spaces/file.txt", "user's.txt"])
                 self.assertEqual(invoked["directory"], override or str(Path(env["USERPROFILE"]) / ".claude"))
                 self.assertEqual(restored["restored"] or None, override)

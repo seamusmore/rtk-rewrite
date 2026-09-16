@@ -1,5 +1,24 @@
 # rtk-rewrite
 
+### Windows Codex diagnostics (1.3.3)
+
+The Windows adapter also handles explicit simple `rtk` commands, including
+`rtk gain --history`. RTK 0.49's missing-hook warning checks Claude Code only;
+the adapter qualifies that exact stderr diagnostic as a Codex/Claude status
+message. Other diagnostics, stdout bytes and exit codes are preserved. Python
+handles streams so the launcher works in PowerShell ConstrainedLanguage mode.
+
+RTK statistics require read/write access to the RTK data directory. A Codex
+permission profile extending `:read-only` can grant only that directory write
+access. Keep network access disabled and select the profile for new tasks.
+The adapter never grants permissions itself. Under a strictly read-only
+profile, statistics access may still fail and the original error is retained.
+
+Without database access, compression can still succeed while statistics are
+not persisted. `rtk gain` retains its failure exit code and prints a permission
+hint. Grant access only to the RTK data directory if persistent statistics are
+desired; installation never changes the user's sandbox policy.
+
 支持 Hermes 和 Codex，两个平台共用 `shared/rewrite.py` 调用 RTK。
 Hermes 使用现有 `plugin.yaml` / `__init__.py` 入口；Codex 使用原生 `PreToolUse` hook。
 
@@ -8,7 +27,7 @@ Hermes 使用现有 `plugin.yaml` / `__init__.py` 入口；Codex 使用原生 `P
 需要 Python 3.10+、RTK，以及支持插件 hooks 和 `updatedInput` 的 Codex 版本。
 Windows 需能执行 `python`，使用 PowerShell 和 RTK 0.49.0+；Linux/macOS 需能执行 `python3`。两端均直接使用 PATH 中已安装的 `rtk`。
 
-本版本合并并登记到 [Seamus 插件市场](https://github.com/seamusmore/agent-plugins) 后安装：
+通过 [Seamus 插件市场](https://github.com/seamusmore/agent-plugins) 安装：
 
 ```powershell
 codex plugin marketplace add seamusmore/agent-plugins --ref main
@@ -16,7 +35,6 @@ codex plugin add rtk-rewrite@seamusmore
 ```
 
 按 Codex 提示审核并信任插件 hook，然后开启新任务。安装完成和 hook 信任是两个步骤。
-当前 PR 阶段尚未登记到市场。
 
 Codex 将终端调用以 `Bash` / `tool_input.command` 传给 hook，执行 shell 保持原设置。
 例如 `git status` 会交给 `rtk git status`。Windows 通过随插件安装的 `hooks/rtk_windows.ps1` 启动，其他平台直接运行改写后的命令。

@@ -1,6 +1,6 @@
 {
   "name": "rtk-rewrite",
-  "version": "1.3.2",
+  "version": "1.3.3",
   "description": "Automatically rewrite supported terminal commands through RTK with a Codex PreToolUse hook.",
   "author": {"name": "Seamus", "url": "https://github.com/seamusmore"},
   "repository": "https://github.com/seamusmore/rtk-rewrite",
