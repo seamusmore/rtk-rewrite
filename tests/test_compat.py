@@ -148,8 +148,8 @@ class CodexContract(unittest.TestCase):
                                     capture_output=True, text=True, env=env)
             self.assertEqual(result.returncode, 7, result.stdout + result.stderr)
             self.assertIn(warning, result.stdout)
-            self.assertNotIn("No hook installed", result.stderr)
-            self.assertIn("Codex rewrite adapter active", result.stderr)
+            self.assertIn(warning, result.stderr)
+            self.assertNotIn("Codex rewrite adapter active", result.stderr)
             self.assertIn("integrity failure", result.stderr)
 
     @unittest.skipUnless(os.name == "nt", "Windows native stub required")

@@ -1,6 +1,5 @@
-"""Run RTK, qualifying its Claude-only hook diagnostic for the Codex host."""
+"""Run RTK with original diagnostics and an optional statistics access hint."""
 
-import re
 import shutil
 import subprocess
 import sys
@@ -13,13 +12,7 @@ def main():
         return 127
     # Inherit stdout directly so compression output and binary streams survive.
     process = subprocess.Popen([executable, *sys.argv[1:]], stderr=subprocess.PIPE)
-    warning = re.compile(
-        rb"^\[(?:rtk|warn)\] (?:/!\\ )?No hook installed .+ run "
-        rb"`rtk init -g` for automatic token savings$"
-    )
     for line in process.stderr:
-        if warning.fullmatch(line.rstrip()):
-            line = b"[rtk] Codex rewrite adapter active; RTK's Claude Code hook check reported no hook.\n"
         sys.stderr.buffer.write(line)
         sys.stderr.buffer.flush()
         if (sys.argv[1:2] == ["gain"]

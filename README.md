@@ -1,11 +1,11 @@
 # rtk-rewrite
 
-### Windows Codex diagnostics (1.3.3)
+### Windows Codex diagnostics (1.3.4)
 
 The Windows adapter also handles explicit simple `rtk` commands, including
-`rtk gain --history`. RTK 0.49's missing-hook warning checks Claude Code only;
-the adapter qualifies that exact stderr diagnostic as a Codex/Claude status
-message. Other diagnostics, stdout bytes and exit codes are preserved. Python
+`rtk gain --history`. RTK diagnostics, stdout bytes and exit codes are preserved.
+`rtk init -g` configures Claude Code by default; its hook-installation messages
+are passed through unchanged. Python
 handles streams so the launcher works in PowerShell ConstrainedLanguage mode.
 
 RTK statistics require read/write access to the RTK data directory. A Codex
