@@ -25,6 +25,10 @@ def handle(event: object) -> dict:
     command = args.get("command")
     if not isinstance(command, str) or not command.strip():
         return {}
+    if os.name == "nt" and args.get("shell"):
+        shell_name = str(args["shell"]).replace("\\", "/").rsplit("/", 1)[-1].lower()
+        if shell_name not in {"pwsh", "pwsh.exe", "powershell", "powershell.exe"}:
+            return {}
     mode = os.getenv("RTK_CODEX_MODE", "rewrite").strip().lower()
     if mode == "off":
         return {}
@@ -67,10 +71,17 @@ def handle(event: object) -> dict:
     # the regular tool handler (including its sandbox/approval checks).
     # It is distinct from PermissionRequest allow. RTK code 3 delegates to
     # that host approval flow, as it does in the existing Hermes adapter.
+    rewritten = result.command
+    if os.name == "nt":
+        # Keep PowerShell's original argument parsing. The script only fills
+        # RTK's missing profile lookup inside this invocation, then restores it.
+        launcher = str(Path(__file__).with_name("rtk_windows.ps1")).replace("'", "''")
+        quoted_command = rewritten.replace("'", "''")
+        rewritten = f"& '{launcher}' '{quoted_command}'"
     return {"hookSpecificOutput": {
         "hookEventName": "PreToolUse",
         "permissionDecision": "allow",
-        "updatedInput": {**args, "command": result.command},
+        "updatedInput": {**args, "command": rewritten},
     }}
 
 

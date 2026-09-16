@@ -91,6 +91,12 @@ class HermesRegression(unittest.TestCase):
 
 
 class CodexContract(unittest.TestCase):
+    def expected_command(self, root=ROOT):
+        if os.name == "nt":
+            script = str(root / "hooks/rtk_windows.ps1").replace("'", "''")
+            return f"& '{script}' 'rtk git status'"
+        return "rtk git status"
+
     def event(self, command="git status"):
         return {"hook_event_name": "PreToolUse", "tool_name": "Bash",
                 "cwd": str(ROOT), "tool_input": {"command": command, "timeout_ms": 5000}}
@@ -100,7 +106,7 @@ class CodexContract(unittest.TestCase):
         event = self.event()
         with patch.object(codex, "rewrite", return_value=RewriteResult("rewritten", "rtk git status", 0)):
             output = codex.handle(event)["hookSpecificOutput"]
-        self.assertEqual(output["updatedInput"], {"command": "rtk git status", "timeout_ms": 5000})
+        self.assertEqual(output["updatedInput"], {"command": self.expected_command(), "timeout_ms": 5000})
         self.assertEqual(event["tool_input"]["command"], "git status")
         self.assertEqual(output["permissionDecision"], "allow")
 
@@ -120,7 +126,7 @@ class CodexContract(unittest.TestCase):
             with patch.object(codex, "rewrite", return_value=RewriteResult("denied", returncode=code)):
                 self.assertEqual(codex.handle(self.event())["hookSpecificOutput"]["permissionDecision"], "deny")
         with patch.object(codex, "rewrite", return_value=RewriteResult("rewritten", "rtk git status", 3)):
-            self.assertEqual(codex.handle(self.event())["hookSpecificOutput"]["updatedInput"]["command"], "rtk git status")
+            self.assertEqual(codex.handle(self.event())["hookSpecificOutput"]["updatedInput"]["command"], self.expected_command())
         for status in ["no_equivalent", "same_command", "empty", "timeout", "error", "unexpected_exit_code"]:
             with patch.object(codex, "rewrite", return_value=RewriteResult(status)):
                 self.assertEqual(codex.handle(self.event()), {})
@@ -161,7 +167,44 @@ class CodexContract(unittest.TestCase):
                                     capture_output=True, env=env, cwd=ROOT.parent)
             self.assertEqual(result.returncode, 0, result.stderr)
             output = json.loads(result.stdout)["hookSpecificOutput"]
-            self.assertEqual(output["updatedInput"]["command"], "rtk git status")
+            self.assertEqual(output["updatedInput"]["command"], self.expected_command(copied))
+
+    @unittest.skipUnless(os.name == "nt", "Windows adapter required")
+    def test_windows_other_shell_is_unchanged(self):
+        event = self.event()
+        event["tool_input"]["shell"] = "C:/Program Files/Git/bin/bash.exe"
+        with patch.object(codex, "rewrite") as rewrite:
+            self.assertEqual(codex.handle(event), {})
+            rewrite.assert_not_called()
+
+    @unittest.skipUnless(os.name == "nt", "Windows runner required")
+    def test_windows_runner_preserves_arguments_exit_and_environment(self):
+        shell = shutil.which("pwsh") or shutil.which("powershell")
+        with tempfile.TemporaryDirectory(prefix="rtk user's plugin ") as folder:
+            script = Path(folder) / "rtk_windows.ps1"
+            shutil.copyfile(ROOT / "hooks/rtk_windows.ps1", script)
+            quoted = str(script).replace("'", "''")
+            rtk_command = "rtk git diff -- 'folder with spaces/file.txt' 'user''s.txt'"
+            driver = (
+                "function rtk { ConvertTo-Json -Compress -InputObject "
+                "@{arguments=@($args); directory=$env:CLAUDE_CONFIG_DIR}; $global:LASTEXITCODE=7 }; "
+                f"& '{quoted}' '{rtk_command.replace(chr(39), chr(39)*2)}'; "
+                "$result=$LASTEXITCODE; ConvertTo-Json -Compress -InputObject "
+                "@{restored=$env:CLAUDE_CONFIG_DIR}; exit $result"
+            )
+            for override in [None, str(Path(folder) / "custom-config")]:
+                env = dict(os.environ)
+                env.pop("CLAUDE_CONFIG_DIR", None)
+                if override:
+                    env["CLAUDE_CONFIG_DIR"] = override
+                result = subprocess.run([shell, "-NoProfile", "-Command", driver],
+                                        capture_output=True, text=True, env=env)
+                self.assertEqual(result.returncode, 7, result.stderr)
+                invoked, restored = map(json.loads, result.stdout.splitlines())
+                self.assertEqual(invoked["arguments"],
+                                 ["git", "diff", "folder with spaces/file.txt", "user's.txt"])
+                self.assertEqual(invoked["directory"], override or str(Path(env["USERPROFILE"]) / ".claude"))
+                self.assertEqual(restored["restored"] or None, override)
 
     @unittest.skipUnless(os.name == "nt", "Windows launcher required")
     def test_windows_launcher_from_powershell(self):

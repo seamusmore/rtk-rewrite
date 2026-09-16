@@ -6,7 +6,7 @@ Hermes 使用现有 `plugin.yaml` / `__init__.py` 入口；Codex 使用原生 `P
 ## Codex
 
 需要 Python 3.10+、RTK，以及支持插件 hooks 和 `updatedInput` 的 Codex 版本。
-Windows 需能执行 `python`，Linux/macOS 需能执行 `python3`；`rtk` 必须位于执行环境的 PATH 中。
+Windows 需能执行 `python`，使用 PowerShell 和 RTK 0.49.0+；Linux/macOS 需能执行 `python3`。两端均直接使用 PATH 中已安装的 `rtk`。
 
 本版本合并并登记到 [Seamus 插件市场](https://github.com/seamusmore/agent-plugins) 后安装：
 
@@ -19,7 +19,7 @@ codex plugin add rtk-rewrite@seamusmore
 当前 PR 阶段尚未登记到市场。
 
 Codex 将终端调用以 `Bash` / `tool_input.command` 传给 hook，执行 shell 保持原设置。
-例如 PowerShell 中的 `git status` 会改写成 `rtk git status`。
+例如 `git status` 会交给 `rtk git status`。Windows 通过随插件安装的 `hooks/rtk_windows.ps1` 启动，其他平台直接运行改写后的命令。
 Windows 的 hook 由 Python 直接读取 `PLUGIN_ROOT` 环境变量，兼容 PowerShell 和 cmd 启动；最终工具命令仍由所选 shell 执行。
 
 首版对单条简单命令自动改写。包含换行、管道、重定向、变量、命令替换、分号或控制运算符的命令保留原样，避免 POSIX/PowerShell 语法混用。
@@ -46,7 +46,7 @@ python -m unittest discover -s tests -v
 安装 RTK 时额外运行真实 hook 启动测试，包括含空格的安装路径和不同工作目录。
 已使用 Codex 0.154.0-alpha.6.2 原生 app-server 和本地固定 Responses 协议测试完成安装、信任、hook 自动触发及 PowerShell 执行验收；测试期间未调用外部模型服务。
 
-Windows 只读沙箱注意事项：本机 RTK 0.42.0 执行时会因用户目录解析失败而退出。独立 RTK 0.49.0 配合指向真实 Claude 配置目录的 `CLAUDE_CONFIG_DIR` 已通过压缩输出验收。运行时选择和环境变量需通过用户明确批准的 Codex 配置完成。
+Windows 沙箱兼容：本机沙箱中的 `SHGetKnownFolderPath(FOLDERID_Profile)` 返回 `0x80070002`，而 `USERPROFILE` 仍指向真实用户目录。RTK 0.49.0 在执行命令前查询该目录，因此插件的 PowerShell 启动脚本会在缺少显式覆盖时，为本次 RTK 子进程提供 `CLAUDE_CONFIG_DIR=USERPROFILE/.claude`，结束后恢复原值。这个变量用于保留 RTK 自身的 hook 完整性检查；插件不会写入 Claude 文件、全局环境变量或 Codex 环境配置。已有显式目录覆盖保持原样，命令仍在 Codex 原有沙箱内执行。显式选择其他 Windows shell 时保留原命令。
 `rtk gain` 使用 RTK 自己的数据库；只读沙箱无法写入该数据库时，压缩命令仍可成功，统计无法持久化。插件保持宿主权限，数据库写权限需单独授权。
 
 协议参考：[Codex Hooks](https://learn.chatgpt.com/docs/hooks)。
