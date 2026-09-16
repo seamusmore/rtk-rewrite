@@ -1,5 +1,55 @@
 # rtk-rewrite
 
+支持 Hermes 和 Codex，两个平台共用 `shared/rewrite.py` 调用 RTK。
+Hermes 使用现有 `plugin.yaml` / `__init__.py` 入口；Codex 使用原生 `PreToolUse` hook。
+
+## Codex
+
+需要 Python 3.10+、RTK，以及支持插件 hooks 和 `updatedInput` 的 Codex 版本。
+Windows 需能执行 `python`，Linux/macOS 需能执行 `python3`；`rtk` 必须位于执行环境的 PATH 中。
+
+本版本合并并登记到 [Seamus 插件市场](https://github.com/seamusmore/agent-plugins) 后安装：
+
+```powershell
+codex plugin marketplace add seamusmore/agent-plugins --ref main
+codex plugin add rtk-rewrite@seamusmore
+```
+
+按 Codex 提示审核并信任插件 hook，然后开启新任务。安装完成和 hook 信任是两个步骤。
+当前 PR 阶段尚未登记到市场。
+
+Codex 将终端调用以 `Bash` / `tool_input.command` 传给 hook，执行 shell 保持原设置。
+例如 PowerShell 中的 `git status` 会改写成 `rtk git status`。
+Windows 的 hook 启动命令采用 Codex 默认的 `cmd.exe` 环境变量语法；最终工具命令仍由所选 shell 执行。
+
+首版对单条简单命令自动改写。包含换行、管道、重定向、变量、命令替换、分号或控制运算符的命令保留原样，避免 POSIX/PowerShell 语法混用。
+Codex 入口不添加 Hermes 的 `: RTK &&` 预览标记。
+
+| 环境变量 | 默认值 | 说明 |
+|---|---|---|
+| `RTK_CODEX_MODE` | `rewrite` | `rewrite` 或 `off` |
+| `RTK_CODEX_TIMEOUT_MS` | `2000` | 改写超时毫秒数，上限 8000；外层 hook 超时 10 秒 |
+
+RTK 缺失、超时、没有对应改写或输出异常时保留原命令。返回码 `2` 阻止调用；`0` 和 `3` 使用有效改写结果。
+Codex 的 `PreToolUse` 中 `allow` 配合 `updatedInput` 只替换工具参数，后续仍走终端工具自身的沙箱及审批流程。
+插件不注册 `PermissionRequest` 审批处理器。RTK 读取的 Claude 权限配置与 Codex 自身权限配置分别由各自系统管理。
+
+节省统计直接使用 `rtk gain`。Hermes 的 `/rtk` 命令和原有进程内计数继续保留。
+
+### 开发验证
+
+```powershell
+python -m unittest discover -s tests -v
+```
+
+测试需要完整 Git 历史，以读取抽取前的 Hermes 基线 `07be79f`，对照配置、命令返回、计数、异常和注册行为。
+安装 RTK 时额外运行真实 hook 启动测试，包括含空格的安装路径和不同工作目录。
+Codex 客户端安装、hook 信任及新任务自动触发需在发布前完成验收。
+
+协议参考：[Codex Hooks](https://learn.chatgpt.com/docs/hooks)。
+
+## Hermes
+
 Hermes Agent 插件：将终端命令自动通过 [RTK](https://github.com/rtk-ai/rtk) 代理执行，节省 **60-90%** LLM token 消耗。
 
 基于 [ogallotti/rtk-hermes](https://github.com/ogallotti/rtk-hermes)，改造为 Hermes 纯目录插件（无需 pip/venv）。

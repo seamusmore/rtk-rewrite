@@ -16,10 +16,11 @@ import json
 import logging
 import os
 import shutil
-import subprocess
 import time
 from dataclasses import asdict, dataclass
 from typing import Optional
+
+from .shared.rewrite import rewrite
 
 __version__ = "1.2.3"
 
@@ -27,11 +28,6 @@ logger = logging.getLogger(__name__)
 
 _rtk_available: Optional[bool] = None
 
-# `rtk rewrite` exit codes:
-# 0 = rewrite allowed, 1 = no equivalent, 2 = deny, 3 = ask/confirm.
-# Codes 0 and 3 both include a valid rewritten command on stdout.
-_RTK_REWRITE_OK_CODES = frozenset({0, 3})
-_RTK_REWRITE_KNOWN_CODES = frozenset({0, 1, 2, 3})
 _MODE_VALUES = frozenset({"rewrite", "suggest", "off"})
 _TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 _FALSE_VALUES = frozenset({"0", "false", "no", "off"})
@@ -180,36 +176,28 @@ def _try_rewrite(command: str, *, config: RtkHermesConfig | None = None) -> Opti
     started = time.perf_counter()
     _metrics.attempted += 1
     try:
-        result = subprocess.run(
-            ["rtk", "rewrite", command],
-            capture_output=True,
-            text=True,
-            timeout=cfg.timeout_ms / 1000,
-        )
-        rewritten = result.stdout.strip()
-        if result.returncode in _RTK_REWRITE_OK_CODES and rewritten and rewritten != command:
-            return rewritten
-        if result.returncode == 1:
+        result = rewrite(command, timeout_ms=cfg.timeout_ms)
+        if result.status == "rewritten":
+            return result.command
+        if result.status == "no_equivalent":
             _metrics.no_equivalent += 1
-        elif result.returncode == 2:
+        elif result.status == "denied":
             _metrics.denied += 1
-        elif result.returncode in _RTK_REWRITE_OK_CODES and rewritten == command:
+        elif result.status == "same_command":
             _metrics.same_command += 1
-        elif result.returncode not in _RTK_REWRITE_KNOWN_CODES:
+        elif result.status == "unexpected_exit_code":
             _metrics.unexpected_exit_codes += 1
             logger.warning(
                 "[rtk] unexpected `rtk rewrite` exit code %s%s",
                 result.returncode,
-                "; stderr redacted" if result.stderr.strip() else "",
+                "; stderr redacted" if result.stderr_present else "",
             )
-        return None
-    except subprocess.TimeoutExpired:
-        _metrics.timeouts += 1
-        logger.debug("[rtk] rewrite timed out")
-        return None
-    except (FileNotFoundError, OSError):
-        _metrics.errors += 1
-        logger.debug("[rtk] rewrite failed")
+        elif result.status == "timeout":
+            _metrics.timeouts += 1
+            logger.debug("[rtk] rewrite timed out")
+        elif result.status == "error":
+            _metrics.errors += 1
+            logger.debug("[rtk] rewrite failed")
         return None
     finally:
         _metrics.total_rewrite_ms += (time.perf_counter() - started) * 1000

@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "^Bash$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/codex_rewrite.py\"",
+            "commandWindows": "python \"%PLUGIN_ROOT%/hooks/codex_rewrite.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
