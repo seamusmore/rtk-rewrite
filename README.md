@@ -20,7 +20,7 @@ codex plugin add rtk-rewrite@seamusmore
 
 Codex 将终端调用以 `Bash` / `tool_input.command` 传给 hook，执行 shell 保持原设置。
 例如 PowerShell 中的 `git status` 会改写成 `rtk git status`。
-Windows 的 hook 启动命令采用 Codex 默认的 `cmd.exe` 环境变量语法；最终工具命令仍由所选 shell 执行。
+Windows 的 hook 由 Python 直接读取 `PLUGIN_ROOT` 环境变量，兼容 PowerShell 和 cmd 启动；最终工具命令仍由所选 shell 执行。
 
 首版对单条简单命令自动改写。包含换行、管道、重定向、变量、命令替换、分号或控制运算符的命令保留原样，避免 POSIX/PowerShell 语法混用。
 Codex 入口不添加 Hermes 的 `: RTK &&` 预览标记。
@@ -44,7 +44,10 @@ python -m unittest discover -s tests -v
 
 测试需要完整 Git 历史，以读取抽取前的 Hermes 基线 `07be79f`，对照配置、命令返回、计数、异常和注册行为。
 安装 RTK 时额外运行真实 hook 启动测试，包括含空格的安装路径和不同工作目录。
-Codex 客户端安装、hook 信任及新任务自动触发需在发布前完成验收。
+已使用 Codex 0.154.0-alpha.6.2 原生 app-server 和本地固定 Responses 协议测试完成安装、信任、hook 自动触发及 PowerShell 执行验收；测试期间未调用外部模型服务。
+
+Windows 只读沙箱注意事项：本机 RTK 0.42.0 执行时会因用户目录解析失败而退出。独立 RTK 0.49.0 配合指向真实 Claude 配置目录的 `CLAUDE_CONFIG_DIR` 已通过压缩输出验收。运行时选择和环境变量需通过用户明确批准的 Codex 配置完成。
+`rtk gain` 使用 RTK 自己的数据库；只读沙箱无法写入该数据库时，压缩命令仍可成功，统计无法持久化。插件保持宿主权限，数据库写权限需单独授权。
 
 协议参考：[Codex Hooks](https://learn.chatgpt.com/docs/hooks)。
 
