@@ -20,7 +20,7 @@ codex plugin add rtk-rewrite@seamusmore
 
 Codex 将终端调用以 `Bash` / `tool_input.command` 传给 hook，执行 shell 保持原设置。
 例如 PowerShell 中的 `git status` 会改写成 `rtk git status`。
-Windows 的 hook 启动命令采用 Codex 默认的 `cmd.exe` 环境变量语法；最终工具命令仍由所选 shell 执行。
+Windows 的 hook 由 Python 直接读取 `PLUGIN_ROOT` 环境变量，兼容 PowerShell 和 cmd 启动；最终工具命令仍由所选 shell 执行。
 
 首版对单条简单命令自动改写。包含换行、管道、重定向、变量、命令替换、分号或控制运算符的命令保留原样，避免 POSIX/PowerShell 语法混用。
 Codex 入口不添加 Hermes 的 `: RTK &&` 预览标记。
